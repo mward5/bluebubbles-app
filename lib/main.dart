@@ -590,6 +590,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
           /* ----- DOCK BADGE LISTENER ----- */
           unawaited(LauncherBadgeSvc.setCount(ChatsSvc.unreadMessageCount.value));
           ChatsSvc.unreadMessageCount.listen(LauncherBadgeSvc.setCount);
+
+          /* ----- TRAY UNREAD DOT ----- */
+          ChatsSvc.unreadMessageCount.listen((count) => setLinuxTrayUnread(count > 0));
         }
 
         /* ----- SYSTEM TRAY INITIALIZATION ----- */
@@ -707,20 +710,35 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
 }
 
 Future<void> initSystemTray() async {
-  String path;
-  if (Platform.isWindows) {
-    path = 'assets/icon/icon.ico';
-  } else if (isFlatpak) {
-    path = 'app.bluebubbles.BlueBubbles';
-  } else if (isSnap) {
-    path = p.joinAll([p.dirname(Platform.resolvedExecutable), 'data/flutter_assets/assets/icon', 'icon.png']);
-  } else {
-    path = 'assets/icon/icon.png';
-  }
+  final String path = Platform.isWindows
+      ? 'assets/icon/icon.ico'
+      : _linuxTrayIconPath(unread: ChatsSvc.unreadMessageCount.value > 0);
+  _linuxTrayUnread = !Platform.isWindows && ChatsSvc.unreadMessageCount.value > 0;
 
   await trayManager.setIcon(path);
   if (Platform.isWindows) await trayManager.setToolTip("BlueBubbles");
   await setSystemTrayContextMenu(windowHidden: !appWindow.isVisible);
+}
+
+bool _linuxTrayUnread = false;
+
+/// Flatpak can only reference the exported icon by name, so it has no unread variant.
+String _linuxTrayIconPath({required bool unread}) {
+  final String file = unread ? 'icon-unread.png' : 'icon.png';
+  if (isFlatpak) return 'app.bluebubbles.BlueBubbles';
+  if (isSnap) return p.joinAll([p.dirname(Platform.resolvedExecutable), 'data/flutter_assets/assets/icon', file]);
+  return 'assets/icon/$file';
+}
+
+/// Swaps the Linux tray icon for one with a red dot while there are unread messages.
+Future<void> setLinuxTrayUnread(bool unread) async {
+  if (unread == _linuxTrayUnread || isFlatpak) return;
+  _linuxTrayUnread = unread;
+  try {
+    await trayManager.setIcon(_linuxTrayIconPath(unread: unread));
+  } catch (e, s) {
+    Logger.warn('Failed to update tray icon', error: e, trace: s);
+  }
 }
 
 Future<void> setSystemTrayContextMenu({bool windowHidden = false}) async {
