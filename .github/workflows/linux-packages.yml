@@ -48,14 +48,14 @@ jobs:
             install: >-
               apt-get update &&
               DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends
-              ca-certificates git curl unzip xz-utils zip jq file clang cmake ninja-build pkg-config
+              ca-certificates git curl unzip xz-utils zip jq file clang cmake make ninja-build pkg-config
               libgtk-3-dev libwebkit2gtk-4.1-dev libmpv-dev libayatana-appindicator3-dev
               libnotify-dev libjson-glib-dev g++
           - packager: rpm
             image: fedora:44
             install: >-
               dnf install -y
-              git curl unzip xz zip jq file which findutils tar gzip clang cmake ninja-build pkgconf-pkg-config
+              git curl unzip xz zip jq file which findutils tar gzip clang cmake make ninja-build pkgconf-pkg-config
               gcc-c++ gtk3-devel webkit2gtk4.1-devel mpv-devel libayatana-appindicator-gtk3-devel
               libnotify-devel json-glib-devel
 
