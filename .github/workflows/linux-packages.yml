@@ -1,0 +1,130 @@
+name: Linux Packages
+
+# Builds .deb (Ubuntu 26.04) and .rpm (Fedora 44) packages with build provenance
+# attestations, then publishes them as a GitHub release. Each package is built natively
+# in its distro container so the bundle links against that distro's libraries.
+#
+# Triggered by linux-v* tags (e.g. linux-v2.1.1.1) so it never collides with the v* tags
+# that desktop-builds.yml and android-builds.yml release from.
+#
+# Verify a download with:
+#   gh attestation verify bluebubbles_<version>_amd64.deb --repo <owner>/bluebubbles-app
+
+on:
+  push:
+    tags:
+      - "linux-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version, e.g. 2.1.1.1 (builds artifacts only; no release is published)"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.4"
+  FVM_VERSION: "4.3.1"
+  NFPM_VERSION: "2.47.0"
+  NFPM_SHA256: "0660ca602b2d2d2ae4781a06c692b3eeb9d437ffea05b831d76e41f4a3188783"
+  VERSION: ${{ inputs.version || github.ref_name }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.packager }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - packager: deb
+            image: ubuntu:26.04
+            install: >-
+              apt-get update &&
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends
+              ca-certificates git curl unzip xz-utils zip jq file clang cmake ninja-build pkg-config
+              libgtk-3-dev libwebkit2gtk-4.1-dev libmpv-dev libayatana-appindicator3-dev
+              libnotify-dev libjson-glib-dev g++
+          - packager: rpm
+            image: fedora:44
+            install: >-
+              dnf install -y
+              git curl unzip xz zip jq file which findutils tar gzip clang cmake ninja-build pkgconf-pkg-config
+              gcc-c++ gtk3-devel webkit2gtk4.1-devel mpv-devel libayatana-appindicator-gtk3-devel
+              libnotify-devel json-glib-devel
+
+    steps:
+      - name: Install system dependencies
+        run: ${{ matrix.install }}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Resolve version
+        run: echo "VERSION=${VERSION#linux-v}" >> "$GITHUB_ENV"
+
+      # Also resolves dependencies, so build.sh's own pub get below is a no-op.
+      - name: Setup Flutter
+        uses: ./.github/actions/setup-flutter
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          fvm-version: ${{ env.FVM_VERSION }}
+
+      - name: Write .env
+        run: echo "KLIPY_API_KEY=${{ secrets.KLIPY_API_KEY }}" > .env
+
+      - name: Build
+        run: bash linux/build.sh
+
+      - name: Install nfpm
+        run: |
+          curl -sSLo nfpm.tar.gz "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          echo "${NFPM_SHA256}  nfpm.tar.gz" | sha256sum -c -
+          tar xzf nfpm.tar.gz -C /usr/local/bin nfpm
+
+      - name: Package
+        run: bash linux/packaging/package.sh "${{ matrix.packager }}" "$VERSION" dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: dist/*.${{ matrix.packager }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bluebubbles-${{ matrix.packager }}
+          path: dist/*.${{ matrix.packager }}
+
+  publish-release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/linux-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: bluebubbles-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.deb *.rpm > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "BlueBubbles Linux packages ${GITHUB_REF_NAME#linux-v}" \
+            --generate-notes dist/*.deb dist/*.rpm dist/SHA256SUMS

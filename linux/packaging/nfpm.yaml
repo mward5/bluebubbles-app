@@ -1,0 +1,59 @@
+# Builds the .deb and .rpm from the Flutter release bundle. Use linux/packaging/package.sh,
+# which normalizes file modes first. The rpm must be packaged from a bundle built on Fedora so the
+# bundle's sonames match the Fedora dependencies below.
+name: bluebubbles
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: net
+priority: optional
+maintainer: BlueBubbles <noreply@bluebubbles.app>
+description: |
+  Open-source iMessage client for Linux.
+  Connects to a BlueBubbles server running on a Mac.
+vendor: BlueBubbles
+homepage: https://bluebubbles.app/
+license: Apache-2.0
+
+contents:
+  - src: build/linux/x64/release/bundle/
+    dst: /opt/bluebubbles/
+    type: tree
+  - src: /opt/bluebubbles/bluebubbles
+    dst: /usr/bin/bluebubbles
+    type: symlink
+  - src: linux/packaging/app.bluebubbles.BlueBubbles.desktop
+    dst: /usr/share/applications/app.bluebubbles.BlueBubbles.desktop
+  - src: flatpak/app.bluebubbles.BlueBubbles.metainfo.xml
+    dst: /usr/share/metainfo/app.bluebubbles.BlueBubbles.metainfo.xml
+  - src: flatpak/icon/128x128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/app.bluebubbles.BlueBubbles.png
+  - src: assets/icon/bb-icon.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/app.bluebubbles.BlueBubbles.svg
+
+overrides:
+  deb:
+    depends:
+      - libgtk-3-0t64
+      - libwebkit2gtk-4.1-0
+      - libsoup-3.0-0
+      - libmpv2
+      - libayatana-appindicator3-1
+      - libjson-glib-1.0-0
+      - libepoxy0
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1
+      - libsoup3
+      - mpv-libs
+      - libayatana-appindicator-gtk3
+      - json-glib
+      - libepoxy
+
+deb:
+  fields:
+    Bugs: https://github.com/BlueBubblesApp/bluebubbles-app/issues
+rpm:
+  group: Applications/Internet

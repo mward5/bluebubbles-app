@@ -60,3 +60,6 @@ pubspeck.lock
 .fvmrc
 
 .claude/projects
+
+# linux/packaging/package.sh output
+/dist/

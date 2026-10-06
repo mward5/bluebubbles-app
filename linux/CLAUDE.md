@@ -5,6 +5,12 @@ C++ code: `main.cc` + `my_application.cc/h` — standard GTK-based Flutter app w
 ## Distribution Packages (project root)
 - `flatpak/` — Flatpak package (`app.bluebubbles.BlueBubbles`)
 - `snap/` — Snap package (`snapcraft.yaml`); core24 base, amd64/arm64, GNOME extension
+- `linux/packaging/` — .deb/.rpm via nfpm (`package.sh`); built and attested by `.github/workflows/linux-packages.yml` on `linux-v*` tags
+
+## Dock Badge
+`lib/services/backend/linux/launcher_badge_service.dart` publishes the unread message count over the Unity
+`com.canonical.Unity.LauncherEntry` D-Bus API. It keys on `linuxDesktopId` (`misc_helpers.dart`), which must match
+the installed `.desktop` file name for each packaging, and the window's prgname/`StartupWMClass` must match it too.
 
 ## Notable Dependencies
 - `desktop_webview_auth` — WebKit2GTK 4.1 (custom fork) for OAuth WebView
