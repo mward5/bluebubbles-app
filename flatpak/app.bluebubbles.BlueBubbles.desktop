@@ -7,4 +7,5 @@ Icon=app.bluebubbles.BlueBubbles
 Terminal=false
 Type=Application
 Categories=Network;InstantMessaging;Chat;
-StartupWMClass=Bluebubbles
+StartupWMClass=app.bluebubbles.BlueBubbles
+X-GNOME-UsesNotifications=true

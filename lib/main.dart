@@ -586,6 +586,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver, TrayListener {
           Future(() => EventDispatcherSvc.emit("theme-update", null));
         }
 
+        if (Platform.isLinux) {
+          /* ----- DOCK BADGE LISTENER ----- */
+          unawaited(LauncherBadgeSvc.setCount(ChatsSvc.unreadMessageCount.value));
+          ChatsSvc.unreadMessageCount.listen(LauncherBadgeSvc.setCount);
+        }
+
         /* ----- SYSTEM TRAY INITIALIZATION ----- */
         await initSystemTray();
         trayManager.addListener(this);

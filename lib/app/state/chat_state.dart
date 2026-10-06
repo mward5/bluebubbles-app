@@ -20,6 +20,10 @@ class ChatState {
   final RxBool isPinned;
   final RxnInt pinIndex;
   final RxBool hasUnreadMessage;
+
+  /// Incoming messages received since the chat was last read. Tracked in memory only, so an
+  /// unread chat restored from the DB counts as 1.
+  final RxInt unreadMessageCount;
   final RxnString muteType;
   final RxnString muteArgs;
   final RxBool isArchived;
@@ -80,6 +84,7 @@ class ChatState {
       : isPinned = (chat.isPinned ?? false).obs,
         pinIndex = RxnInt(chat.pinIndex),
         hasUnreadMessage = (chat.hasUnreadMessage ?? false).obs,
+        unreadMessageCount = ((chat.hasUnreadMessage ?? false) ? 1 : 0).obs,
         muteType = RxnString(chat.muteType),
         muteArgs = RxnString(chat.muteArgs),
         isArchived = (chat.isArchived ?? false).obs,
@@ -165,6 +170,16 @@ class ChatState {
     if (hasUnreadMessage.value != value) {
       hasUnreadMessage.value = value;
     }
+  }
+
+  void incrementUnreadMessageCountInternal() {
+    unreadMessageCount.value++;
+  }
+
+  /// Keeps [unreadMessageCount] consistent with [hasUnreadMessage]: 0 once read, at least 1 while unread.
+  void syncUnreadMessageCountInternal() {
+    final int count = hasUnreadMessage.value ? (unreadMessageCount.value == 0 ? 1 : unreadMessageCount.value) : 0;
+    if (unreadMessageCount.value != count) unreadMessageCount.value = count;
   }
 
   void updateMutedInternal(String? muteType, String? muteArgs) {

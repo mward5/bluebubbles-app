@@ -40,6 +40,9 @@ class ChatsService {
   /// Global unread count across all chats
   final RxInt unreadCount = 0.obs;
 
+  /// Global count of unread incoming messages across all chats
+  final RxInt unreadMessageCount = 0.obs;
+
   /// Map of chat states for granular reactivity
   /// Key is the chat GUID, value is the ChatState
   /// The map itself doesn't need to be Rx because the underlying ChatState fields are
@@ -445,8 +448,10 @@ class ChatsService {
   void _setupChatStateListeners(ChatState chatState) {
     // Listen to hasUnreadMessage changes to update global unread count
     chatState.hasUnreadMessage.listen((hasUnread) {
+      chatState.syncUnreadMessageCountInternal();
       _recalculateUnreadCount();
     });
+    chatState.unreadMessageCount.listen((_) => _recalculateUnreadCount());
   }
 
   /// The filter selection currently saved as default (see
@@ -596,6 +601,10 @@ class ChatsService {
     final count = chatStates.values.where((state) => state.hasUnreadMessage.value).length;
     if (unreadCount.value != count) {
       unreadCount.value = count;
+    }
+    final messageCount = chatStates.values.fold<int>(0, (sum, state) => sum + state.unreadMessageCount.value);
+    if (unreadMessageCount.value != messageCount) {
+      unreadMessageCount.value = messageCount;
     }
   }
 
@@ -1329,6 +1338,12 @@ class ChatsService {
 
     // Update state if available
     state?.updateHasUnreadInternal(value);
+  }
+
+  /// Count one more unread incoming message for a chat. Call before the chat's unread flag is
+  /// propagated so the first message counts as 1, not 2.
+  void incrementUnreadMessageCount(String guid) {
+    getChatState(guid)?.incrementUnreadMessageCountInternal();
   }
 
   /// Set chat muted status

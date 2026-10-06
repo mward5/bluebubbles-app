@@ -52,6 +52,14 @@ bool get isSnap => !kIsWeb && Platform.isLinux && Platform.environment.containsK
 
 bool get isFlatpak => !kIsWeb && Platform.isLinux && Platform.environment.containsKey('FLATPAK_ID');
 
+/// The installed .desktop file id (without the `.desktop` suffix) for the current Linux packaging.
+/// GNOME uses it to tie dock badges and notifications to the app's launcher.
+String get linuxDesktopId {
+  final env = Platform.environment;
+  if (env.containsKey('SNAP')) return '${env['SNAP_INSTANCE_NAME'] ?? env['SNAP_NAME'] ?? 'bluebubbles'}_bluebubbles';
+  return env['FLATPAK_ID'] ?? 'app.bluebubbles.BlueBubbles';
+}
+
 bool get isMsix => !kIsWeb && Platform.isWindows && Platform.resolvedExecutable.contains('WindowsApps');
 
 bool get isStoreMsix => isMsix && Platform.resolvedExecutable.contains(r'\23344BlueBubbles.BlueBubbles_');

@@ -377,6 +377,8 @@ class IncomingMessageHandler {
       if (ChatsSvc.isChatActive(c.guid)) {
         c.hasUnreadMessage = false;
         unawaited(ChatsSvc.setChatHasUnread(c, false, force: true));
+      } else if (!(saved.isFromMe ?? false) && (c.hasUnreadMessage ?? false)) {
+        ChatsSvc.incrementUnreadMessageCount(c.guid);
       }
 
       // The latest message is linked on the guarded sync path (Chat.addMessage,

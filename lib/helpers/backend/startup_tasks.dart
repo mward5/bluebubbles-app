@@ -279,6 +279,7 @@ class StartupTasks {
     GetIt.I.registerSingleton<ChatsService>(ChatsService());
     GetIt.I.registerSingleton<TypingIndicatorService>(TypingIndicatorService());
     GetIt.I.registerSingleton<SocketService>(SocketService());
+    if (Platform.isLinux) GetIt.I.registerSingleton<LauncherBadgeService>(LauncherBadgeService());
     Logger.info("Waiting on NotificationsService...");
     await _waitForInterop(notifications: true);
 

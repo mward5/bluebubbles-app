@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bluebubbles/helpers/types/helpers/misc_helpers.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// ignore: implementation_imports, depend_on_referenced_packages
+import 'package:flutter_local_notifications_linux/src/model/hint.dart';
 import 'package:flutter_local_notifications_windows/src/details/notification_to_xml.dart';
 import 'package:timezone/timezone.dart';
 import 'package:universal_io/io.dart';
@@ -100,6 +103,10 @@ class DesktopNotifications {
   static const String _prefix = 'dn';
   static const String _replyId = 'reply';
   static const int _maxWindowsButtons = 5;
+
+  /// Ties a notification to the app's .desktop file so GNOME files it under BlueBubbles and counts it on the dock.
+  static List<LinuxNotificationCustomHint> get _linuxHints =>
+      [LinuxNotificationCustomHint(name: 'desktop-entry', value: LinuxHintStringValue(linuxDesktopId))];
 
   static FlutterLocalNotificationsPlugin? _plugin;
   static final Map<int, _Callbacks> _callbacks = {};
@@ -278,7 +285,7 @@ class DesktopNotifications {
       body: body,
       callbacks: _Callbacks(onOpen: onOpen),
       windows: (id) => const WindowsNotificationDetails(duration: WindowsNotificationDuration.short),
-      linux: (id) => const LinuxNotificationDetails(),
+      linux: (id) => LinuxNotificationDetails(customHints: _linuxHints),
     );
     if (id != null) _lastTextId = id;
     return id;
@@ -360,6 +367,8 @@ class DesktopNotifications {
         ],
         sound: silent ? null : ThemeLinuxSound('message-new-instant'),
         suppressSound: silent,
+        category: LinuxNotificationCategory.imReceived,
+        customHints: _linuxHints,
       ),
     );
   }
@@ -464,6 +473,7 @@ class DesktopNotifications {
         sound: ThemeLinuxSound('phone-incoming-call'),
         urgency: LinuxNotificationUrgency.critical,
         resident: true,
+        customHints: _linuxHints,
         timeout: const LinuxNotificationTimeout.expiresNever(),
       ),
     );
