@@ -100,6 +100,8 @@ class Settings {
   final RxBool filterUnknownSenders = false.obs;
   /// Dimension name -> enum name (e.g. `{"read": "unread", "type": "group"}`).
   final Rx<Map<String, String>> savedChatFilters = Rx<Map<String, String>>(<String, String>{});
+  /// Mute notifications for chats that [savedChatFilters] hides from the conversation list.
+  final RxBool notifyOnlyFilteredChats = false.obs;
   final RxBool tabletMode = true.obs;
   final RxBool highlightSelectedChat = true.obs;
   final RxBool immersiveMode = true.obs;
@@ -374,6 +376,7 @@ class Settings {
       'globalTextDetection': globalTextDetection.value,
       'filterUnknownSenders': filterUnknownSenders.value,
       'savedChatFilters': Map<String, String>.from(savedChatFilters.value),
+      'notifyOnlyFilteredChats': notifyOnlyFilteredChats.value,
       'tabletMode': tabletMode.value,
       'immersiveMode': immersiveMode.value,
       'avatarScale': avatarScale.value,
@@ -573,6 +576,8 @@ class Settings {
     if (map.containsKey('savedChatFilters')) {
       SettingsSvc.settings.savedChatFilters.value = _processSavedChatFilters(map['savedChatFilters']);
     }
+    SettingsSvc.settings.notifyOnlyFilteredChats.value =
+        map['notifyOnlyFilteredChats'] ?? SettingsSvc.settings.notifyOnlyFilteredChats.value;
     SettingsSvc.settings.tabletMode.value = kIsDesktop || (map['tabletMode'] ?? SettingsSvc.settings.tabletMode.value);
     SettingsSvc.settings.highlightSelectedChat.value =
         map['highlightSelectedChat'] ?? SettingsSvc.settings.highlightSelectedChat.value;
@@ -800,6 +805,7 @@ class Settings {
     s.globalTextDetection.value = map['globalTextDetection'] ?? "";
     s.filterUnknownSenders.value = map['filterUnknownSenders'] ?? false;
     s.savedChatFilters.value = _processSavedChatFilters(map['savedChatFilters']);
+    s.notifyOnlyFilteredChats.value = map['notifyOnlyFilteredChats'] ?? false;
     s.tabletMode.value = kIsDesktop || (map['tabletMode'] ?? true);
     s.highlightSelectedChat.value = map['highlightSelectedChat'] ?? true;
     s.immersiveMode.value = map['immersiveMode'] ?? true;

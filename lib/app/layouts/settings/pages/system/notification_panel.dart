@@ -93,6 +93,17 @@ class _NotificationPanelState extends State<NotificationPanel> with SingleTicker
               ),
               const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
               SettingsSwitch(
+                onChanged: (bool val) async {
+                  SettingsSvc.settings.notifyOnlyFilteredChats.value = val;
+                  await SettingsSvc.settings.saveOneAsync('notifyOnlyFilteredChats');
+                },
+                initialVal: SettingsSvc.settings.notifyOnlyFilteredChats.value,
+                title: "Only Notify for Filtered Chats",
+                subtitle: "Mutes chats hidden by your saved default chat filters",
+                backgroundColor: tileColor,
+              ),
+              const SettingsDivider(padding: EdgeInsets.only(left: 16.0)),
+              SettingsSwitch(
                 title: "Text Detection",
                 subtitle: "Mute all chats except when your choice of text is found in a message",
                 initialVal: SettingsSvc.settings.globalTextDetection.value.isNotEmpty,
