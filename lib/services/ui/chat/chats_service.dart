@@ -102,6 +102,9 @@ class ChatsService {
   /// membership from there.
   StreamSubscription? _customGroupsListener;
 
+  /// Recount [unreadMessageCount] when settings that decide which chats it includes change.
+  final List<StreamSubscription> _unreadMessageCountSettingsListeners = [];
+
   // ========== Helper Getters (replacing direct chats access) ==========
 
   /// Get all chats as a list (non-reactive), sorted by pin index and latest message date
@@ -357,7 +360,21 @@ class ChatsService {
     // groups from a backup, each of which fires its own event) collapses into
     // a single rebuild instead of one per group.
     _customGroupsListener?.cancel();
-    _customGroupsListener = CustomGroupsSvc.groups.listen((_) => _scheduleListVersionUpdate());
+    _customGroupsListener = CustomGroupsSvc.groups.listen((_) {
+      _scheduleListVersionUpdate();
+      _recalculateUnreadCount();
+    });
+
+    for (final sub in _unreadMessageCountSettingsListeners) {
+      sub.cancel();
+    }
+    _unreadMessageCountSettingsListeners
+      ..clear()
+      ..addAll([
+        SettingsSvc.settings.notifyOnlyFilteredChats.listen((_) => _recalculateUnreadCount()),
+        SettingsSvc.settings.savedChatFilters.listen((_) => _recalculateUnreadCount()),
+        SettingsSvc.settings.filterUnknownSenders.listen((_) => _recalculateUnreadCount()),
+      ]);
 
     if (kIsDesktop && Platform.isWindows) {
       /* ----- IMESSAGE:// HANDLER ----- */
@@ -407,6 +424,8 @@ class ChatsService {
       _recalculateUnreadCount();
     });
     chatState.unreadMessageCount.listen((_) => _recalculateUnreadCount());
+    chatState.muteType.listen((_) => _recalculateUnreadCount());
+    chatState.muteArgs.listen((_) => _recalculateUnreadCount());
   }
 
   /// The filter selection currently saved as default (see
@@ -557,10 +576,25 @@ class ChatsService {
     if (unreadCount.value != count) {
       unreadCount.value = count;
     }
-    final messageCount = chatStates.values.fold<int>(0, (sum, state) => sum + state.unreadMessageCount.value);
+    final messageCount = chatStates.values
+        .where((state) => state.unreadMessageCount.value > 0 && _countsTowardUnreadMessages(state))
+        .fold<int>(0, (sum, state) => sum + state.unreadMessageCount.value);
     if (unreadMessageCount.value != messageCount) {
       unreadMessageCount.value = messageCount;
     }
+  }
+
+  /// Whether [state]'s unread messages count toward [unreadMessageCount]. Chats that never notify don't:
+  /// muted ones, filtered unknown senders, and chats hidden by the saved chat filters. Partial mutes
+  /// (individual senders, text detection) still count.
+  bool _countsTowardUnreadMessages(ChatState state) {
+    final muteType = state.muteType.value;
+    if (muteType == "mute") return false;
+    if (muteType == "temporary_mute") {
+      final until = DateTime.tryParse(state.muteArgs.value ?? "");
+      if (until != null && until.isAfter(DateTime.now())) return false;
+    }
+    return !state.chat.isFilteredUnknownSender && !state.chat.isHiddenByNotificationFilters;
   }
 
   /// Schedule a debounced update to chatListVersion to prevent rapid UI rebuilds
@@ -601,6 +635,9 @@ class ChatsService {
     _generateFakeAvatarsListener?.cancel();
     _hideAttachmentsListener?.cancel();
     _customGroupsListener?.cancel();
+    for (final sub in _unreadMessageCountSettingsListeners) {
+      sub.cancel();
+    }
   }
 
   /// Get sorted chats (pin index first, then by latest message date)

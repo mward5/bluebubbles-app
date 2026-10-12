@@ -287,6 +287,10 @@ class Chat {
     }
   }
 
+  /// Whether "Filter Unknown Senders" is on and this is a 1:1 chat with someone who isn't a contact.
+  bool get isFilteredUnknownSender =>
+      SettingsSvc.settings.filterUnknownSenders.value && handles.length == 1 && handles.first.contactsV2.isEmpty;
+
   /// Whether "Only Notify for Filtered Chats" is on and the saved default chat
   /// list filters hide this chat. The read dimension never hides a chat here,
   /// since any chat with a new message is unread.
@@ -308,7 +312,7 @@ class Chat {
   /// Return whether or not the notification should be muted
   bool shouldMuteNotification(Message? message) {
     /// Filter unknown senders & sender doesn't have a contact, then don't notify
-    if (SettingsSvc.settings.filterUnknownSenders.value && handles.length == 1 && handles.first.contactsV2.isEmpty) {
+    if (isFilteredUnknownSender) {
       return true;
 
       /// Chat is hidden by the saved default chat list filters
