@@ -33,6 +33,22 @@ class CustomGroupsService {
     }
   }
 
+  /// Ids of the custom groups each chat belongs to, keyed by chat guid.
+  ///
+  /// Built from [groups] (refreshed on every 'custom-groups-updated' event)
+  /// rather than `Chat.customGroups` — that backlink ToMany is lazily loaded
+  /// and cached per Chat instance, so it goes stale as soon as a chat is added
+  /// to/removed from a group and never picks up the change.
+  Map<String, Set<int>> groupIdsByChatGuid() {
+    final result = <String, Set<int>>{};
+    for (final group in groups) {
+      for (final chat in group.chats) {
+        result.putIfAbsent(chat.guid, () => <int>{}).add(group.id!);
+      }
+    }
+    return result;
+  }
+
   void dispose() {
     _eventSub?.cancel();
   }

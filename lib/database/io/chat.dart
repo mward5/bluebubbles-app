@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluebubbles/app/layouts/conversation_list/widgets/filters/chat_list_filters.dart';
 import 'package:bluebubbles/utils/logger/logger.dart';
 import 'package:bluebubbles/helpers/helpers.dart';
 import 'package:bluebubbles/database/database.dart';
@@ -11,6 +12,7 @@ import 'package:faker/faker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bluebubbles/models/models.dart' show MessageSaveResult;
 import 'package:get/get.dart' hide Response;
+import 'package:get_it/get_it.dart';
 // (needed when generating objectbox model code)
 // ignore: unnecessary_import
 import 'package:objectbox/objectbox.dart';
@@ -285,10 +287,32 @@ class Chat {
     }
   }
 
+  /// Whether "Only Notify for Filtered Chats" is on and the saved default chat
+  /// list filters hide this chat. The read dimension never hides a chat here,
+  /// since any chat with a new message is unread.
+  bool get isHiddenByNotificationFilters {
+    if (!SettingsSvc.settings.notifyOnlyFilteredChats.value) return false;
+    final saved = SettingsSvc.settings.savedChatFilters.value;
+    if (saved.isEmpty) return false;
+    return !ChatListFilters.fromSettingsMap(saved).matches(
+      this,
+      hasUnread: true,
+      // CustomGroupsService isn't registered in the headless (background) isolate,
+      // so fall back to the DB backlink there.
+      groupIds: () => GetIt.I.isRegistered<CustomGroupsService>()
+          ? CustomGroupsSvc.groupIdsByChatGuid()[guid] ?? const <int>{}
+          : customGroups.map((g) => g.id!).toSet(),
+    );
+  }
+
   /// Return whether or not the notification should be muted
   bool shouldMuteNotification(Message? message) {
     /// Filter unknown senders & sender doesn't have a contact, then don't notify
     if (SettingsSvc.settings.filterUnknownSenders.value && handles.length == 1 && handles.first.contactsV2.isEmpty) {
+      return true;
+
+      /// Chat is hidden by the saved default chat list filters
+    } else if (isHiddenByNotificationFilters) {
       return true;
 
       /// Check if global text detection is on and notify accordingly

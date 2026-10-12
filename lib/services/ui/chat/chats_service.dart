@@ -169,63 +169,18 @@ class ChatsService {
 
     // Apply conversation-list filter dimensions (chip selections) — these combine with AND semantics.
     if (filters != null) {
-      if (filters.readFilter == ChatReadFilter.unread) {
-        // Read from ChatState rather than the Chat model directly — markAllAsRead()
-        // updates ChatState.hasUnreadMessage instantly but writes the underlying
-        // Chat.hasUnreadMessage field asynchronously via a background DB/HTTP call,
-        // so the model field can briefly lag behind the reactive state.
-        chats = chats.where((e) => getChatState(e.guid)?.hasUnreadMessage.value ?? (e.hasUnreadMessage ?? false)).toList();
-      }
-
-      // The legacy "Filter Unknown Senders" setting already siphons unknown-sender
-      // chats into their own separate list (see the showUnknown block above and
-      // Chat.shouldMuteNotification) — when it's on, it takes precedence over this
-      // chip so the two mechanisms can't fight and produce a confusing empty list.
-      if (!SettingsSvc.settings.filterUnknownSenders.value) {
-        if (filters.senderFilter == ChatSenderFilter.known) {
-          chats = chats
-              .where((e) => e.isGroup || (!e.isGroup && e.handles.firstOrNull?.contactsV2.isNotEmpty == true))
-              .toList();
-        } else if (filters.senderFilter == ChatSenderFilter.unknown) {
-          chats = chats.where((e) => !e.isGroup && e.handles.firstOrNull?.contactsV2.isEmpty != false).toList();
-        }
-      }
-
-      if (filters.typeFilter == ChatTypeFilter.group) {
-        chats = chats.where((e) => e.isGroup).toList();
-      } else if (filters.typeFilter == ChatTypeFilter.direct) {
-        chats = chats.where((e) => !e.isGroup).toList();
-      }
-
-      if (filters.muteFilter == ChatMuteFilter.muted) {
-        chats = chats.where((e) => e.muteType != null).toList();
-      } else if (filters.muteFilter == ChatMuteFilter.unmuted) {
-        chats = chats.where((e) => e.muteType == null).toList();
-      }
-
-      if (filters.serviceFilter == ChatServiceFilter.iMessage) {
-        chats = chats.where((e) => e.isIMessage).toList();
-      } else if (filters.serviceFilter == ChatServiceFilter.other) {
-        chats = chats.where((e) => !e.isIMessage).toList();
-      }
-
-      if (filters.customGroupIds.isNotEmpty) {
-        // Sourced from CustomGroupsSvc.groups (refreshed on every
-        // 'custom-groups-updated' event) rather than `e.customGroups` —
-        // that backlink ToMany is lazily loaded and cached per Chat instance
-        // (e.g. by CustomGroupFilterChipRow's unread-count badges), so it
-        // goes stale as soon as a chat is added to/removed from a group and
-        // never picks up the change without this.
-        final matchingGuids = CustomGroupsSvc.groups
-            .where((g) => filters.customGroupIds.contains(g.id))
-            .expand((g) => g.chats)
-            .map((c) => c.guid)
-            .toSet();
-        chats = chats.where((e) => matchingGuids.contains(e.guid)).toList();
-      } else if (filters.showUngroupedOnly) {
-        final groupedGuids = CustomGroupsSvc.groups.expand((g) => g.chats).map((c) => c.guid).toSet();
-        chats = chats.where((e) => !groupedGuids.contains(e.guid)).toList();
-      }
+      Map<String, Set<int>>? groupIdsByGuid;
+      chats = chats
+          .where((e) => filters.matches(
+                e,
+                // Read from ChatState rather than the Chat model directly — markAllAsRead()
+                // updates ChatState.hasUnreadMessage instantly but writes the underlying
+                // Chat.hasUnreadMessage field asynchronously via a background DB/HTTP call,
+                // so the model field can briefly lag behind the reactive state.
+                hasUnread: getChatState(e.guid)?.hasUnreadMessage.value ?? (e.hasUnreadMessage ?? false),
+                groupIds: () => (groupIdsByGuid ??= CustomGroupsSvc.groupIdsByChatGuid())[e.guid] ?? const <int>{},
+              ))
+          .toList();
     }
 
     // Apply pinned filter

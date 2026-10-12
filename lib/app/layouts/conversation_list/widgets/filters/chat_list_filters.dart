@@ -4,6 +4,8 @@
 /// "Unread" + "Group Chats" shows only unread group chats.
 library;
 
+import 'package:bluebubbles/database/models.dart';
+import 'package:bluebubbles/services/services.dart';
 import 'package:collection/collection.dart';
 
 enum ChatReadFilter { all, unread }
@@ -91,6 +93,40 @@ class ChatListFilters {
       serviceFilter != ChatServiceFilter.all ||
       customGroupIds.isNotEmpty ||
       showUngroupedOnly;
+
+  /// Whether [chat] passes every active dimension. Shared by the conversation
+  /// list and notification muting so both agree on what's filtered out.
+  ///
+  /// [hasUnread] is the chat's current unread state. [groupIds] returns the
+  /// ids of the custom groups [chat] belongs to; it's only called when a
+  /// custom-group dimension is active.
+  bool matches(Chat chat, {required bool hasUnread, required Set<int> Function() groupIds}) {
+    if (readFilter == ChatReadFilter.unread && !hasUnread) return false;
+
+    // The legacy "Filter Unknown Senders" setting already siphons unknown-sender
+    // chats into their own separate list (see ChatsService.getFilteredChats and
+    // Chat.shouldMuteNotification) — when it's on, it takes precedence over this
+    // dimension so the two mechanisms can't fight and produce a confusing empty list.
+    if (!SettingsSvc.settings.filterUnknownSenders.value && senderFilter != ChatSenderFilter.all) {
+      final isKnown = chat.isGroup || chat.handles.firstOrNull?.contactsV2.isNotEmpty == true;
+      if (isKnown != (senderFilter == ChatSenderFilter.known)) return false;
+    }
+
+    if (typeFilter != ChatTypeFilter.all && chat.isGroup != (typeFilter == ChatTypeFilter.group)) return false;
+    if (muteFilter != ChatMuteFilter.all && (chat.muteType != null) != (muteFilter == ChatMuteFilter.muted)) {
+      return false;
+    }
+    if (serviceFilter != ChatServiceFilter.all && chat.isIMessage != (serviceFilter == ChatServiceFilter.iMessage)) {
+      return false;
+    }
+
+    if (customGroupIds.isNotEmpty) {
+      if (!groupIds().any(customGroupIds.contains)) return false;
+    } else if (showUngroupedOnly) {
+      if (groupIds().isNotEmpty) return false;
+    }
+    return true;
+  }
 
   ChatListFilters copyWith({
     ChatReadFilter? readFilter,

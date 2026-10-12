@@ -271,6 +271,7 @@ List<Widget> buildSettingItemList({
           searchTags: [
             "Send Notifications on Chat List",
             "Notify for Reactions",
+            "Only Notify for Filtered Chats",
             "Notification Sound",
             "Text Detection",
             "Hide Message Text",
