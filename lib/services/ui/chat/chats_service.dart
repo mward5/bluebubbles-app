@@ -37,10 +37,10 @@ class ChatsService {
   Completer<void> loadedAllChats = Completer();
   final RxBool loadedFirstChatBatch = false.obs;
 
-  /// Global unread count across all chats
+  /// Number of unread chats, leaving out ones that never notify (see [_countsTowardUnread])
   final RxInt unreadCount = 0.obs;
 
-  /// Global count of unread incoming messages across all chats
+  /// Number of unread incoming messages, leaving out chats that never notify (see [_countsTowardUnread])
   final RxInt unreadMessageCount = 0.obs;
 
   /// Map of chat states for granular reactivity
@@ -575,22 +575,22 @@ class ChatsService {
 
   /// Recalculate the global unread count based on all chat states
   void _recalculateUnreadCount() {
-    final count = chatStates.values.where((state) => state.hasUnreadMessage.value).length;
+    final count = chatStates.values.where((state) => state.hasUnreadMessage.value && _countsTowardUnread(state)).length;
     if (unreadCount.value != count) {
       unreadCount.value = count;
     }
     final messageCount = chatStates.values
-        .where((state) => state.unreadMessageCount.value > 0 && _countsTowardUnreadMessages(state))
+        .where((state) => state.unreadMessageCount.value > 0 && _countsTowardUnread(state))
         .fold<int>(0, (sum, state) => sum + state.unreadMessageCount.value);
     if (unreadMessageCount.value != messageCount) {
       unreadMessageCount.value = messageCount;
     }
   }
 
-  /// Whether [state]'s unread messages count toward [unreadMessageCount]. Chats that never notify don't:
+  /// Whether [state] counts toward [unreadCount] and [unreadMessageCount]. Chats that never notify don't:
   /// muted ones, filtered unknown senders, and chats hidden by the saved chat filters. Partial mutes
   /// (individual senders, text detection) still count.
-  bool _countsTowardUnreadMessages(ChatState state) {
+  bool _countsTowardUnread(ChatState state) {
     final muteType = state.muteType.value;
     if (muteType == "mute") return false;
     if (muteType == "temporary_mute") {
