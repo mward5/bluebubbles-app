@@ -529,6 +529,12 @@ class ChatState {
     }
   }
 
+  /// Whether this is a group chat or a 1:1 chat with someone who is a contact.
+  /// Unlike [Chat.hasKnownSender] on [chat], this reads the participant's
+  /// [HandleState.handle], which [HandleService.updateHandleStates] replaces
+  /// with a fresh DB copy when a contact gets linked.
+  bool get hasKnownSender => chat.isGroup || participants.firstOrNull?.handle.contactsV2.isNotEmpty == true;
+
   // ========== Internal Lifecycle State Update Methods ==========
   // These are called by ChatsService - do NOT call directly
 

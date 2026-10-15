@@ -291,16 +291,23 @@ class Chat {
   bool get isFilteredUnknownSender =>
       SettingsSvc.settings.filterUnknownSenders.value && handles.length == 1 && handles.first.contactsV2.isEmpty;
 
+  /// Whether this is a group chat or a 1:1 chat with someone who is a contact.
+  /// Reads [handles] as loaded on this object, so it can be stale on a [Chat]
+  /// held in memory since before a contact was linked (see [ChatState.hasKnownSender]).
+  bool get hasKnownSender => isGroup || handles.firstOrNull?.contactsV2.isNotEmpty == true;
+
   /// Whether "Only Notify for Filtered Chats" is on and the saved default chat
   /// list filters hide this chat. The read dimension never hides a chat here,
-  /// since any chat with a new message is unread.
-  bool get isHiddenByNotificationFilters {
+  /// since any chat with a new message is unread. Pass [isKnownSender] when a
+  /// fresher answer than [hasKnownSender] is available.
+  bool isHiddenByNotificationFilters({bool Function()? isKnownSender}) {
     if (!SettingsSvc.settings.notifyOnlyFilteredChats.value) return false;
     final saved = SettingsSvc.settings.savedChatFilters.value;
     if (saved.isEmpty) return false;
     return !ChatListFilters.fromSettingsMap(saved).matches(
       this,
       hasUnread: true,
+      isKnownSender: isKnownSender ?? () => hasKnownSender,
       // CustomGroupsService isn't registered in the headless (background) isolate,
       // so fall back to the DB backlink there.
       groupIds: () => GetIt.I.isRegistered<CustomGroupsService>()
@@ -316,7 +323,7 @@ class Chat {
       return true;
 
       /// Chat is hidden by the saved default chat list filters
-    } else if (isHiddenByNotificationFilters) {
+    } else if (isHiddenByNotificationFilters()) {
       return true;
 
       /// Check if global text detection is on and notify accordingly

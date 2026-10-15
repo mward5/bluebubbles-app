@@ -644,16 +644,19 @@ class ContactV2Actions {
     return await Database.runInTransaction(TxMode.read, () {
       final contactsBox = Database.contactsV2;
 
-      // Normalize the search address
-      final normalized =
-          address.contains('@') ? ContactV2.normalizeEmail(address) : ContactV2.normalizePhoneNumber(address);
+      // Match phone numbers by variant, like the full contact sync does, so a contact saved as
+      // "(619) 555-0100" still matches a handle of "+16195550100".
+      final isEmail = address.contains('@');
+      Set<String> keysFor(String a) => isEmail ? {ContactV2.normalizeEmail(a)} : _getPhoneNumberVariants(a);
+      final searchKeys = keysFor(address);
 
       // Search through all contacts for a match
       final allContacts = contactsBox.getAll();
 
       for (final contact in allContacts) {
-        if (contact.hasMatchingAddress(normalized)) {
-          return contact.id;
+        for (final contactAddress in contact.addresses) {
+          if (contactAddress.contains('@') != isEmail) continue;
+          if (keysFor(contactAddress).any(searchKeys.contains)) return contact.id;
         }
       }
 
