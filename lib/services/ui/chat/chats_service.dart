@@ -175,6 +175,9 @@ class ChatsService {
                 // Chat.hasUnreadMessage field asynchronously via a background DB/HTTP call,
                 // so the model field can briefly lag behind the reactive state.
                 hasUnread: getChatState(e.guid)?.hasUnreadMessage.value ?? (e.hasUnreadMessage ?? false),
+                // Same reasoning: ChatState's participants get the fresh handle when a
+                // contact is linked later, while the Chat model keeps its stale one.
+                isKnownSender: () => getChatState(e.guid)?.hasKnownSender ?? e.hasKnownSender,
                 groupIds: () => (groupIdsByGuid ??= CustomGroupsSvc.groupIdsByChatGuid())[e.guid] ?? const <int>{},
               ))
           .toList();
@@ -568,6 +571,15 @@ class ChatsService {
         chatListVersion.value++;
       });
     }
+  }
+
+  /// Re-apply the chat list filters and unread count after contacts were linked to or unlinked from
+  /// handles. Either can change whether a chat counts as a known sender, which the sender filter
+  /// reads but [updateChat] doesn't treat as a list change.
+  void onSenderContactsChanged() {
+    if (headless) return;
+    _scheduleListVersionUpdate();
+    _recalculateUnreadCount();
   }
 
   /// Re-sort [_sortedChats] in-place and notify the chat list UI.

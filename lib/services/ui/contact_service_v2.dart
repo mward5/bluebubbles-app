@@ -330,13 +330,16 @@ class ContactServiceV2 {
       query.close();
 
       final ChatsService chats = GetIt.I<ChatsService>();
+      var anyUpdated = false;
       for (final chat in allChats) {
         if (chat.handles.any((p) => idSet.contains(p.id))) {
           // Debounced (immediate: false) so a large sync batches into one
           // chat-list version bump instead of one rebuild per chat.
           chats.updateChat(chat, override: true, immediate: false);
+          anyUpdated = true;
         }
       }
+      if (anyUpdated) chats.onSenderContactsChanged();
     } catch (e, stack) {
       Logger.error('[ContactServiceV2] Error updating chats for handles', error: e, trace: stack);
     }
